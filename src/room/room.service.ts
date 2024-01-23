@@ -49,9 +49,10 @@ export class RoomService {
         return
     }
 
-    async deleteRoom(roomNum: number): Promise<boolean> {
-        const result = await this.redisClient.del(`Room:${roomNum}`)
+    async deleteRoom(roomNum:number): Promise<boolean> {
+        console.log('>>>>',roomNum)
+        const result:number = await this.redisClient.del(`Room:${roomNum}`)
         console.log(result)
-        return result
+        return result>0
     }
 }

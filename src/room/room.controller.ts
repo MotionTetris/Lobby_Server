@@ -29,9 +29,8 @@ export class RoomController {
     }
 
     @Delete('/:roomNum')
-    async delRoom(@Param() roomNum:number):Promise<boolean>{
-        await this.roomService.deleteRoom(roomNum)
-        return true 
+    async delRoom(@Param('roomNum') roomNum:number):Promise<boolean>{
+        return await this.roomService.deleteRoom(roomNum)
     }
 }
 
