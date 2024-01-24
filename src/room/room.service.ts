@@ -1,8 +1,7 @@
-import { Delete, Get, Injectable, Post, Put } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { GameRoomDTO } from './DTO';
 import { Redis, RedisKey } from 'ioredis';
 import { RedisProvider } from 'providers';
-import { threadId } from 'worker_threads';
 
 let roomNum: number = 1
 @Injectable()
@@ -17,7 +16,7 @@ export class RoomService {
     }
 
     async findAll(): Promise<GameRoomDTO[]> {
-        let keys = [];
+        const keys:RedisKey[] = [];
         const values = [];
         const targets = await this.redisClient.keys('Room:*')
         keys.push(...targets)
@@ -35,18 +34,25 @@ export class RoomService {
 
     async findOne(roomNum: number): Promise<GameRoomDTO> {
         const result = await this.redisClient.get(`Room:${roomNum}`)
+        
+        if (!result) throw new Error()
+        
         return JSON.parse(result)
     }
 
     async createRoom(roomInfo: GameRoomDTO): Promise<string> {
+        roomInfo['RoomNumber'] = roomNum
         const result = await this.redisClient.set(`Room:${roomNum++}`, JSON.stringify(roomInfo))
         console.log(result)
         return result
     }
 
-    async modifyRoomInfo(roomNum: number, payload: GameRoomDTO): Promise<GameRoomDTO> {
-
-        return
+    async modifyRoomInfo(roomNum: number, payload: GameRoomDTO): Promise<GameRoomDTO | boolean> {
+        const result = await this.redisClient.set(`Room:${roomNum}`, JSON.stringify(payload))
+        if(result == 'OK'){
+            return payload
+        }
+        return false
     }
 
     async deleteRoom(roomNum:number): Promise<boolean> {
