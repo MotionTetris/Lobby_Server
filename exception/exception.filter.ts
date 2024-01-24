@@ -20,7 +20,6 @@ import {
   
       // 오류 응답을 정의
       const errorResponse = {
-        statusCode: status,
         timestamp: new Date().toISOString(),
         path: request.url,
         message: exception instanceof HttpException

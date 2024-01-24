@@ -18,7 +18,7 @@ export class RoomController {
     }
 
     @Post()
-    async newRoom(@Body() roomInfo:GameRoomDTO):Promise<String>{
+    async newRoom(@Body() roomInfo:GameRoomDTO):Promise<number>{
         return await this.roomService.createRoom(roomInfo);
     }
 
