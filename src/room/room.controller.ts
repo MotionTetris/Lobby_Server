@@ -1,20 +1,28 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { GameRoomDTO } from './DTO';
 import { RoomService } from './room.service';
+import { AppGateway } from '../../providers'
+import { IMessage } from './DTO/message';
 
 @Controller('room')
 export class RoomController {
     constructor(
         private readonly roomService:RoomService,
+        private readonly appGateway:AppGateway
     ){}
 
     @Get()
     async getRoomList():Promise<GameRoomDTO[]>{
         return await this.roomService.findAll();
     }
+
     @Get('/:roomNum')
-    async getRoom(@Param('roomNum') roomNum:number):Promise<GameRoomDTO>{
-        return await this.roomService.findOne(roomNum);
+    async getRoom(@Param('roomNum') roomNum:number):Promise<IMessage>{
+        const result = await this.roomService.findOne(roomNum);
+        if(result.Code == "200"){
+            this.appGateway.broadcastEvent(result.Message)
+        }
+        return result
     }
 
     @Post()

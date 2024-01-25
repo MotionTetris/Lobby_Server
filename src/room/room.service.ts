@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { GameRoomDTO } from './DTO';
 import { Redis, RedisKey } from 'ioredis';
 import { RedisProvider } from 'providers';
+import { IMessage } from './DTO/message';
 
 @Injectable()
 export class RoomService {
@@ -31,12 +32,15 @@ export class RoomService {
         return values;
     }
 
-    async findOne(roomNum: number): Promise<GameRoomDTO> {
+    async findOne(roomNum: number): Promise<IMessage> {
         const result = await this.redisClient.get(`Room:${roomNum}`)
 
         if (!result) throw new Error(`${roomNum}Room Not Found`)
-
-        return JSON.parse(result)
+        const message = {
+            Code:"200",
+            Message: JSON.parse(result)
+        }
+        return message
     }
 
     async createRoom(roomInfo: GameRoomDTO): Promise<number> {

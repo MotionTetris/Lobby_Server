@@ -9,7 +9,7 @@ export const ENV = {
         Port:3000,
         RedisHost:"172.17.0.3",
         RedisPort:6379,
-        Origin:"localhost",
+        Origin:"*",
         Secret:"test",
     },
     Dev:{
@@ -17,7 +17,7 @@ export const ENV = {
         Port:process.env.PORT||"3000",
         RedisHost:process.env.REDIS_HOST||"localhost",
         RedisPort:process.env.REDIS_PORT||"6379",
-        Origin:process.env.ORIGIN||"localhost",
+        Origin:process.env.ORIGIN||"*",
         Secret:process.env.SECRET||"test"
     }
 }
