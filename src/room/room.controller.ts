@@ -18,13 +18,14 @@ export class RoomController {
     }
 
     @Post()
-    async newRoom(@Body() roomInfo:GameRoomDTO):Promise<number>{
+    async newRoom(@Body() roomInfo:GameRoomDTO):Promise<String>{
         return await this.roomService.createRoom(roomInfo);
     }
 
     @Put('/:roomNum')
-    async modifyRoomInfo(@Param('roomNum') roomNum:number, @Body() payload:GameRoomDTO):Promise<boolean | GameRoomDTO>{
-        return await this.roomService.modifyRoomInfo(roomNum, payload)
+    async modifyRoomInfo(@Param() roomNum:number, @Body() payload:GameRoomDTO):Promise<boolean>{
+        await this.roomService.modifyRoomInfo(roomNum, payload)
+        return true
     }
 
     @Delete('/:roomNum')
