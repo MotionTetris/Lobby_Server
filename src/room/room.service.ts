@@ -69,7 +69,7 @@ export class RoomService {
         if (result == 'OK') {
             return payload
         }
-        return false
+        // throw new Error("")
     }
 
     async deleteRoom(roomNum: number): Promise<boolean> {

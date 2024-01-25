@@ -10,7 +10,8 @@ async function bootstrap() {
     credentials: true,
     // exposedHeaders:['Authorization'],
   })
-  app.useGlobalFilters(new AllExceptionsFilter())
+  // app.useGlobalFilters(new AllExceptionsFilter())
   await app.listen(3000);
 }
 bootstrap();
+ 

@@ -7,10 +7,11 @@ import { RedisModule } from '@liaoliaots/nestjs-redis';
 import { RedisProvider } from 'providers';
 import { JwtModule } from '@nestjs/jwt'
 import config from '../config'
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from 'providers/jwt.auth';
 import { JwtService } from '@nestjs/jwt';
-
+import { ConfigModule } from '@nestjs/config'
+import { AllExceptionsFilter } from 'exception/exception.filter';
 @Module({
   imports: [
     RedisModule.forRoot({
@@ -24,12 +25,16 @@ import { JwtService } from '@nestjs/jwt';
     JwtModule.register({
       secret: config.Secret,
       // signOptions:{expiresIn:'60s'}
-    })
+    }),
+   ConfigModule.forRoot()
   ],
   controllers: [AppController, RoomController],
   providers: [{
     provide: APP_GUARD,
     useClass:  JwtAuthGuard
+  },{
+    provide: APP_FILTER,
+    useClass: AllExceptionsFilter,
   },AppService, RoomService, RedisProvider, JwtService],
 }) 
 export class AppModule {}
