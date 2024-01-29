@@ -8,7 +8,7 @@ import { IMessage } from './DTO/message';
 export class RoomController {
     constructor(
         private readonly roomService:RoomService,
-        private readonly appGateway:AppGateway
+        private appGateway:AppGateway
     ){}
 
     @Get()
@@ -16,11 +16,11 @@ export class RoomController {
         return await this.roomService.findAll();
     }
 
-    @Get('/:roomNum')
-    async getRoom(@Param('roomNum') roomNum:number):Promise<IMessage>{
+    @Get('/:roomId')
+    async getRoom(@Param('roomId') roomNum:number):Promise<IMessage>{
         const result = await this.roomService.findOne(roomNum);
         if(result.Code == "200"){
-            this.appGateway.broadcastEvent(result.Message)
+            // this.appGateway.broadcastEvent(result.Message)
         }
         return result
     }
@@ -30,14 +30,19 @@ export class RoomController {
         return await this.roomService.createRoom(roomInfo);
     }
 
-    @Put('/:roomNum')
-    async modifyRoomInfo(@Param('roomNum') roomNum:number, @Body() payload:GameRoomDTO):Promise<boolean | GameRoomDTO>{
-        return await this.roomService.modifyRoomInfo(roomNum, payload)
+    @Put('/:roomId')
+    async modifyRoomInfo(@Param('roomId') roomId:number, @Body() payload:GameRoomDTO):Promise<boolean | GameRoomDTO>{
+        const result = await this.roomService.modifyRoomInfo(roomId, payload)
+        if (result == 'OK') {
+            this.appGateway.modifyRoomInfo(roomId,payload)
+            return payload
+        }
+        return false
     }
 
-    @Delete('/:roomNum')
-    async delRoom(@Param('roomNum') roomNum:number):Promise<boolean>{
-        return await this.roomService.deleteRoom(roomNum)
+    @Delete('/:roomId')
+    async delRoom(@Param('roomId') roomId:number):Promise<void>{
+        await this.roomService.deleteRoom(roomId)
     }
 }
 

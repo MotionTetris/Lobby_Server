@@ -8,12 +8,13 @@ import { AppGateway, RedisProvider, JwtAuthGuard } from 'providers';
 import { JwtModule } from '@nestjs/jwt'
 import config from '../config'
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config'
 import { AllExceptionsFilter } from 'exception/exception.filter';
+import { RoomModule } from './room/room.module';
 
 @Module({
   imports: [
+    RoomModule,
     RedisModule.forRoot({
       readyLog: true,
       config:{
@@ -26,9 +27,10 @@ import { AllExceptionsFilter } from 'exception/exception.filter';
       secret: config.Secret,
       // signOptions:{expiresIn:'60s'}
     }),
-   ConfigModule.forRoot()
+   ConfigModule.forRoot(),
+   RoomModule,
   ],
-  controllers: [AppController, RoomController],
+  controllers: [AppController],
   providers: [
     {
   //   provide: APP_GUARD,
@@ -36,6 +38,7 @@ import { AllExceptionsFilter } from 'exception/exception.filter';
   // },{
     provide: APP_FILTER,
     useClass: AllExceptionsFilter,
-  },AppService, RoomService, RedisProvider, JwtService, AppGateway],
+  },AppService,],
 }) 
 export class AppModule {}
+ 
