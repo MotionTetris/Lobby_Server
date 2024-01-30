@@ -1,7 +1,6 @@
 export interface GameRoomDTO {
   owner: string;
-  score: string;
-  roomId: string; // 방번호
+  roomId: number; // 방번호
   title: string; // 방제
   status: string; // 무슨상태??
   creatorProfilePic: string; // 방장 프사

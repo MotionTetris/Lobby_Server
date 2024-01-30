@@ -10,7 +10,7 @@ export const ENV = {
     RedisHost: '172.17.0.3',
     RedisPort: 6379,
     Origin: '*',
-    Secret: 'test',
+    Secret: "test",
   },
   Dev: {
     Host: process.env.HOST || 'localhost',

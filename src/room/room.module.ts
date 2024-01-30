@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AppGateway, RedisProvider } from 'providers';
+import { AppGateway, RedisProvider } from 'src/providers';
 import { RoomController } from './room.controller';
 import { RoomService } from './room.service';
 import { JwtService } from '@nestjs/jwt';

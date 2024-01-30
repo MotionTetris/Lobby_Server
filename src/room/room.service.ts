@@ -21,17 +21,33 @@ export class RoomService {
     return rooms.filter(Boolean).map((room) => JSON.parse(room as string));
   }
 
-  async findOne(roomId: number): Promise<IMessage> {
+  async findOne(roomId: number): Promise<GameRoomDTO> {
     const result = await this.redisClient.get(`Room:${roomId}`);
 
     if (!result) {
       throw new Error(`${roomId}Room Not Found`);
     }
 
-    return {
-      code: '200',
-      message: JSON.parse(result),
-    };
+    return JSON.parse(result)
+  }
+
+  async joinRoom(roomId:number, nickname:string):Promise<ResponseRoomInfo>{
+    const roomInfo = await this.findOne(roomId);
+    roomInfo.players.push(nickname)
+    const result = await this.modifyRoomInfo(roomInfo)
+    return result
+  }
+
+  async leaveRoom(roomId:number, nickname:string):Promise<ResponseRoomInfo>{
+    const roomInfo = await this.findOne(roomId)
+    const {players} = roomInfo
+    const index = players.indexOf(nickname)
+    if(index !== -1){
+        players.splice(index,1)
+    }
+    roomInfo.players = players
+    const result = await this.modifyRoomInfo(roomInfo)
+    return result
   }
 
   async createRoom(roomInfo: GameRoomDTO): Promise<string> {
@@ -50,7 +66,7 @@ export class RoomService {
     while (occupiedSet.has(roomId)) {
       roomId++;
     }
-    roomInfo['roomId'] = `${roomId}`;
+    roomInfo['roomId'] = roomId;
 
     // 새 방 정보를 Redis에 저장합니다.
     const roomKey = `Room:${roomId}`;

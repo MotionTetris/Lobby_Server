@@ -54,7 +54,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const errorResponse = {
       timestamp: new Date().toISOString(),
       path: request.url,
-      code: status,
       message:
         exception instanceof HttpException
           ? exception.getResponse()
