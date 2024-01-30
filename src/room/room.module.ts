@@ -5,8 +5,8 @@ import { RoomService } from './room.service';
 import { JwtService } from '@nestjs/jwt';
 
 @Module({
-    controllers:[RoomController],
-    providers: [RoomService, RedisProvider, AppGateway, JwtService],
-    exports: [],
-  })
+  controllers: [RoomController],
+  providers: [RoomService, RedisProvider, AppGateway, JwtService],
+  exports: [],
+})
 export class RoomModule {}

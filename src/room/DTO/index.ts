@@ -1,2 +1,2 @@
-export * from "./GameRoom_DTO"
-export * from "./message"
+export * from './GameRoom_DTO';
+export * from './message';

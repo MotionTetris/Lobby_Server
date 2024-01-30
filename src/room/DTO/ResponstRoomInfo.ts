@@ -1,4 +1,4 @@
-export interface GameRoomDTO {
+export interface ResponseRoomInfo {
   owner: string;
   score: string;
   roomId: string; // 방번호
@@ -11,6 +11,5 @@ export interface GameRoomDTO {
   backgroundUrl: string; // 방 배경 사진
   roomStatus: 'Ready' | 'Start' | 'Wait'; // 방 상태
   isLock: 'Lock' | 'UnLock'; // 방 잠금 유무
-  password: string;
   players: string[]; // 참가자 리스트
 }
