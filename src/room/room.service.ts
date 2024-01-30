@@ -1,101 +1,132 @@
 import { Injectable } from '@nestjs/common';
 import { GameRoomDTO } from './DTO';
-import { Redis, RedisKey } from 'ioredis';
-import { RedisProvider } from 'providers';
+import { Redis } from 'ioredis';
+import { RedisProvider } from 'src/providers';
 import { IMessage } from './DTO/message';
+import * as bcrypt from 'bcrypt';
+import { ResponseRoomInfo } from './DTO/ResponstRoomInfo';
 
 @Injectable()
 export class RoomService {
+  private readonly redisClient: Redis;
+  constructor(private RedisProvider: RedisProvider) {
+    this.redisClient = this.RedisProvider.getClient();
+  }
 
-    private readonly redisClient: Redis;
+  async findAll(): Promise<GameRoomDTO[]> {
+    const keys = await this.redisClient.keys('Room:*');
+    const rooms = await Promise.all(
+      keys.map((key) => this.redisClient.get(key)),
+    );
+    return rooms.filter(Boolean).map((room) => JSON.parse(room as string));
+  }
 
-    constructor(
-        private RedisProvider: RedisProvider,
-    ) {
-        this.redisClient = this.RedisProvider.getClient()
+  async findOne(roomId: number): Promise<GameRoomDTO> {
+    const result = await this.redisClient.get(`Room:${roomId}`);
+
+    if (!result) {
+      throw new Error(`${roomId}Room Not Found`);
     }
 
-    async findAll(): Promise<GameRoomDTO[]> {
-        const keys: RedisKey[] = [];
-        const values:GameRoomDTO[]|"" = [];
-        const targets = await this.redisClient.keys('Room:*')
-        keys.push(...targets)
+    return JSON.parse(result)
+  }
 
-        for (const key of keys) {
-            const value:GameRoomDTO = JSON.parse(await this.redisClient.get(key))
-            if (value) {
-                values.push(value)
-            } else {
-                values.push(value)
-            }
-        }
-        return values;
+  async joinRoom(roomId:number, nickname:string):Promise<ResponseRoomInfo>{
+    const roomInfo = await this.findOne(roomId);
+    roomInfo.players.push(nickname)
+    const result = await this.modifyRoomInfo(roomInfo)
+    return result
+  }
+
+  async leaveRoom(roomId:number, nickname:string):Promise<ResponseRoomInfo>{
+    const roomInfo = await this.findOne(roomId)
+    const {players} = roomInfo
+    const index = players.indexOf(nickname)
+    if(index !== -1){
+        players.splice(index,1)
+    }
+    roomInfo.players = players
+    const result = await this.modifyRoomInfo(roomInfo)
+    return result
+  }
+
+  async createRoom(roomInfo: GameRoomDTO): Promise<string> {
+    let roomId = 1;
+
+    if (roomInfo.password) {
+      const hashedPassword = await bcrypt.hash(roomInfo.password, 10);
+      roomInfo.password = hashedPassword;
     }
 
-    async findOne(roomNum: number): Promise<IMessage> {
-        const result = await this.redisClient.get(`Room:${roomNum}`)
+    // 사용 중인 방 번호들을 가져오기
+    const occupiedRooms = await this.redisClient.smembers('occupiedRooms');
+    const occupiedSet = new Set(occupiedRooms.map((num) => parseInt(num)));
 
-        if (!result) throw new Error(`${roomNum}Room Not Found`)
-        const message = {
-            Code:"200",
-            Message: JSON.parse(result)
-        }
-        return message
+    // 사용 가능한 가장 낮은 방 번호를 찾기
+    while (occupiedSet.has(roomId)) {
+      roomId++;
+    }
+    roomInfo['roomId'] = roomId;
+
+    // 새 방 정보를 Redis에 저장합니다.
+    const roomKey = `Room:${roomId}`;
+    const tx_result = await this.redisClient
+      .multi()
+      .sadd('occupiedRooms', roomId) // 방 번호를 사용 중인 목록에 추가
+      .set(roomKey, JSON.stringify(roomInfo)) // 방 정보를 저장
+      .exec();
+
+    if (tx_result.some((result) => result === null)) {
+      throw new Error('Room Creation Failed.');
     }
 
-    async createRoom(roomInfo: GameRoomDTO): Promise<number> {
-        let roomNumber = 1;
-        // 사용 중인 방 번호들을 가져옵니다.
-        const occupiedRooms = await this.redisClient.smembers('occupiedRooms');
-        const occupiedSet = new Set(occupiedRooms.map(num => parseInt(num)));
+    return roomId.toString();
+  }
 
-        // 사용 가능한 가장 낮은 방 번호를 찾습니다.
-        while (occupiedSet.has(roomNumber)) {
-            roomNumber++;
-        }
-        roomInfo["RoomNumber"] = roomNumber
-        // 새 방 정보를 Redis에 저장합니다.
-        const roomKey = `Room:${roomNumber}`;
-        const tx_result = await this.redisClient.multi()
-            .sadd('occupiedRooms', roomNumber) // 방 번호를 사용 중인 목록에 추가합니다.
-            .set(roomKey, JSON.stringify(roomInfo)) // 방 정보를 저장합니다.
-            .exec();
+  async modifyRoomInfo(payload: GameRoomDTO): Promise<ResponseRoomInfo> {
+    const { roomId } = payload;
+    const roomData = await this.redisClient.get(`Room:${roomId}`);
+    if (!roomData) throw new Error(`Room ${roomId} not found`);
 
-        if (!tx_result || tx_result.some(result => result === null)) {
-            throw new Error('Room Creation Failed.');
-        }
-        
-        return roomNumber;
+    const roomInfo = JSON.parse(roomData);
+    // 보낸사람이 방장인가?
+    if (roomInfo.owner !== payload.owner) {
+      throw new Error('Only the room owner can modify room information');
     }
-
-    async modifyRoomInfo(roomNum: number, payload: GameRoomDTO): Promise<GameRoomDTO | boolean> {
-        const result = await this.redisClient.set(`Room:${roomNum}`, JSON.stringify(payload))
-        if (result == 'OK') {
-            return payload
-        }
-        // throw new Error("")
+    // 수정될 비밀번호가 있으면, 변경된 것 해쉬화 후 저장 비밀번호가 안왔으면 그대로.
+    if (payload.password) {
+      const hashedPassword = await bcrypt.hash(payload.password, 10);
+      roomInfo.password = hashedPassword; // 업데이트된 비밀번호 적용
     }
+    const resultInfo = { ...roomInfo, ...payload };
 
-    async deleteRoom(roomNum: number): Promise<boolean> {
-        const roomKey = `Room:${roomNum}`;
+    const result = await this.redisClient.set(
+      `Room:${roomId}`,
+      JSON.stringify(resultInfo),
+    );
 
-        // Redis 트랜잭션 시작
-        const transaction = this.redisClient.multi();
-        transaction.del(roomKey);
-
-        // 사용 중인 방 번호 목록에서 해당 번호 제거
-        transaction.srem('occupiedRooms', roomNum.toString());
-
-        // 트랜잭션 실행
-        const tx_result = await transaction.exec();
-
-        // 트랜잭션 결과 검증
-        // 실패 했거나 result 배열에 null이 포함될 경우(뭔가 하나라도 실패했을 시)
-        // atomic을 이용한 처리
-        if (!tx_result || tx_result.some(result => result === null)) {
-            throw new Error('Room Deletion Failed');
-        }
-
-        return true;
+    if (result !== 'OK') {
+      throw new Error(`Failed to update Room ${roomId}`);
     }
+    delete resultInfo['password'];
+    return resultInfo;
+  }
+
+  async deleteRoom(roomId: number): Promise<void> {
+    const roomKey = `Room:${roomId}`;
+
+    // 트랜잭션 실행
+    const txResult = await this.redisClient
+      .multi()
+      .del(roomKey)
+      .srem('occupiedRooms', roomId.toString())
+      .exec();
+
+    // 트랜잭션 결과 검증
+    // 실패 했거나 result 배열에 null이 포함될 경우(뭔가 하나라도 실패했을 시)
+    // atomic을 이용한 처리
+    if (!txResult || txResult.some((result) => result === null)) {
+      throw new Error('Room Deletion Failed');
+    }
+  }
 }
