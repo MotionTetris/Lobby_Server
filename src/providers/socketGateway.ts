@@ -35,7 +35,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
   lobbyUser: Set<string> = new Set();
-  rooms: { [roomId: number]: Set<string> } = {};
+  // rooms: { [roomId: number]: Set<string> } = {};
+  rooms: Map<number, Set<string>> = new Map()
   user: { [nickname: string]: UserStatus } = {};
   // user: Map<string, UserStatus> = new Map();
   sockets: Map<string, string> = new Map();
@@ -51,6 +52,13 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', 'Invalid token. Connection refused.');
       client.disconnect();
     }
+  }
+
+  isRoomThere(roomId:number):boolean{
+    if(this.rooms.has(roomId)){
+      return true
+    }
+    return false
   }
 
   private restoreUserState(client: Socket, nickname: string) {
@@ -87,10 +95,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userStatus = this.user[nickname];
     if (userStatus) {
       this.lobbyUser.delete(nickname);
-      if (userStatus.roomId && this.rooms[userStatus.roomId]) {
-        this.rooms[userStatus.roomId].delete(nickname);
-        if (this.rooms[userStatus.roomId].size === 0) {
-          delete this.rooms[userStatus.roomId];
+      if (userStatus.roomId && this.isRoomThere(userStatus.roomId)) {
+        this.rooms.get(userStatus.roomId).delete(nickname);
+        if (this.rooms.get(userStatus.roomId)?.size === 0) {
+          this.rooms.delete(userStatus.roomId);
           await this.roomService.deleteRoom(userStatus.roomId);
         }
       }
@@ -106,10 +114,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const nickname = await this.verifyToken(client);
     this.lobbyUser.delete(nickname);
     this.user[nickname].roomId = roomId;
-    this.rooms[roomId] = new Set();
-    this.rooms[roomId].add(nickname);
+    this.rooms.set(roomId, new Set<string>());
+    this.rooms.get(roomId).add(nickname);
     client.join(`${roomId}`);
-    client.emit('createRoom', Array.from(this.rooms[roomId]));
+    client.emit('createRoom', Array.from(this.rooms.get(roomId)));
   }
 
   @SubscribeMessage('joinRoom')
@@ -118,20 +126,25 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() { roomId }: { roomId: number },
   ) {
     const nickname = await this.verifyToken(client);
-    if (this.rooms[roomId]?.has(nickname)) {
+    const isRoom = this.isRoomThere(roomId)
+    if(!isRoom){
+      client.emit('joinUser','방이 없음.')
+      return
+    }
+    if (this.rooms.get(roomId).has(nickname)) {
       client.emit('joinUser', {
-        rooms: Array.from(this.rooms[roomId]),
+        rooms: Array.from(this.rooms.get(roomId)),
         mesage: '이미 들어와 있음',
       });
       return;
     }
     this.lobbyUser.delete(nickname);
     this.user[nickname].roomId = roomId;
-    this.rooms[roomId].add(nickname);
+    this.rooms.get(roomId)?.add(nickname);
     client.join(`${roomId}`);
     const roomInfo = await this.roomService.joinRoom(roomId, nickname);
     client.emit('roomInfo', roomInfo);
-    this.server.to(`${roomId}`).emit('joinUser', [...this.rooms[roomId]]);
+    this.server.to(`${roomId}`).emit('joinUser', Array.from(this.rooms.get(roomId)));
   }
 
   @SubscribeMessage('leaveRoom')
@@ -140,14 +153,20 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() { roomId }: { roomId: number },
   ) {
     const nickname = await this.verifyToken(client);
-    if (!this.rooms[roomId]?.has(nickname)) {
+    const isRoom = this.isRoomThere(roomId)
+    const hasRoomNickname = this.rooms.get(roomId).has(nickname)
+    if(!isRoom){
+      client.emit('leave',"방이 존재하지 않음.")
+      return
+    }
+    if ( !hasRoomNickname) {
       client.emit('leave', '방에 존재하지 않음.');
       return;
     }
     client.leave(`${roomId}`);
-    this.rooms[`${roomId}`]?.delete(nickname);
-    if (!this.rooms[roomId]) {
-      delete this.rooms[roomId];
+    this.rooms.get(roomId).delete(nickname);
+    if (this.rooms.get(roomId).size === 0) {
+      this.rooms.delete(roomId);
       await this.roomService.deleteRoom(roomId);
       client.emit('leave', '방 삭제');
     } else {
