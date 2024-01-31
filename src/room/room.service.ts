@@ -50,7 +50,7 @@ export class RoomService {
     return result
   }
 
-  async createRoom(roomInfo: GameRoomDTO): Promise<string> {
+  async createRoom(roomInfo: GameRoomDTO): Promise<GameRoomDTO> {
     let roomId = 1;
 
     if (roomInfo.password) {
@@ -80,7 +80,9 @@ export class RoomService {
       throw new Error('Room Creation Failed.');
     }
 
-    return roomId.toString();
+    const createdRoom = await this.findOne(roomId)
+
+    return createdRoom
   }
 
   async modifyRoomInfo(payload: GameRoomDTO): Promise<ResponseRoomInfo> {

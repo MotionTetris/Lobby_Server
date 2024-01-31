@@ -165,19 +165,4 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId } = roomInfo;
     this.server.to(`${roomId}`).emit('modifyRoomInfo', resultInfo);
   }
-
-  // Game Server
-  @SubscribeMessage('moveBlock')
-  moveBlock(
-    @ConnectedSocket() client:Socket,
-    @MessageBody() status
-  ) {
-
-  }
-
-  @SubscribeMessage('turnBlock')
-  turnBlock() {}
-
-  @SubscribeMessage('createBlock')
-  createBlock() {}
 }

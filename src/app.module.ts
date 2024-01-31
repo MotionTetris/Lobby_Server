@@ -18,7 +18,7 @@ import { RoomModule } from './room/room.module';
       config: {
         host: config.RedisHost,
         port: config.RedisPort,
-        // password: 'hunminjungwook'
+        // password: 'hoonminjungwook'
       },
     }),
     JwtModule.register({
