@@ -38,5 +38,6 @@ export interface GameRoomDTO {
   backgroundUrl: string;
   roomStatus: keyof typeof RoomStatuses;
   isLock: keyof typeof LockStatuses;
+  // password:string,
   players: string[];
 }
