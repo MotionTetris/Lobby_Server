@@ -20,7 +20,7 @@ interface UserStatus {
 
 interface StatusInGame {}
 
-@WebSocketGateway(3001,{
+@WebSocketGateway(3001, {
   cors: {
     origin: '*', // 모든 도메인에서의 접근을 허용합니다. 실제 사용 시에는 보안을 위해 구체적인 도메인을 명시하는 것이 좋습니다.
     credentials: true, // 쿠키를 사용할 경우 true로 설정
@@ -100,32 +100,35 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('createRoom')
   async createRoom(
-    @ConnectedSocket() client:Socket,
-    @MessageBody() {roomId}:{roomId:number}
-  ){
-    const nickname = await this.verifyToken(client)
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { roomId }: { roomId: number },
+  ) {
+    const nickname = await this.verifyToken(client);
     this.lobbyUser.delete(nickname);
     this.user[nickname].roomId = roomId;
     this.rooms[roomId] = new Set();
-    this.rooms[roomId].add(nickname)
+    this.rooms[roomId].add(nickname);
     client.join(`${roomId}`);
-    client.emit('createRoom',Array.from(this.rooms[roomId]))
+    client.emit('createRoom', Array.from(this.rooms[roomId]));
   }
 
   @SubscribeMessage('joinRoom')
   async joinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() roomId:number ,
+    @MessageBody() roomId: number,
   ) {
     const nickname = await this.verifyToken(client);
-    if(this.rooms[roomId]?.has(nickname)){
-      client.emit('joinUser',{rooms:Array.from(this.rooms[roomId]),mesage:'이미 들어와 있음'})
-      return
+    if (this.rooms[roomId]?.has(nickname)) {
+      client.emit('joinUser', {
+        rooms: Array.from(this.rooms[roomId]),
+        mesage: '이미 들어와 있음',
+      });
+      return;
     }
     this.lobbyUser.delete(nickname);
     this.user[nickname].roomId = roomId;
     this.rooms[roomId].add(nickname);
-    client.join(`${roomId}`); 
+    client.join(`${roomId}`);
     const roomInfo = await this.roomService.joinRoom(roomId, nickname);
     client.emit('roomInfo', roomInfo);
     this.server.to(`${roomId}`).emit('joinUser', [...this.rooms[roomId]]);
@@ -137,29 +140,28 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() { roomId }: { roomId: number },
   ) {
     const nickname = await this.verifyToken(client);
-    if(!this.rooms[roomId]?.has(nickname)){
-      client.emit('leave','방에 존재하지 않음.')
-      return
+    if (!this.rooms[roomId]?.has(nickname)) {
+      client.emit('leave', '방에 존재하지 않음.');
+      return;
     }
     client.leave(`${roomId}`);
     this.rooms[`${roomId}`]?.delete(nickname);
     if (!this.rooms[roomId]) {
       delete this.rooms[roomId];
       await this.roomService.deleteRoom(roomId);
-      client.emit('leave','방 삭제')
-    }else{
-      const roomInfo = await this.roomService.leaveRoom(roomId, nickname)
+      client.emit('leave', '방 삭제');
+    } else {
+      const roomInfo = await this.roomService.leaveRoom(roomId, nickname);
       client.join('lobby');
-      client.emit('leave', roomInfo)
+      client.emit('leave', roomInfo);
     }
-
   }
 
   @SubscribeMessage('modifyRoomInfo')
   async modifyRoomInfo(
-    @ConnectedSocket()client: Socket, 
-    @MessageBody() roomInfo: GameRoomDTO
-    ) {
+    @ConnectedSocket() client: Socket,
+    @MessageBody() roomInfo: GameRoomDTO,
+  ) {
     await this.verifyToken(client);
     const resultInfo = await this.roomService.modifyRoomInfo(roomInfo);
     const { roomId } = roomInfo;

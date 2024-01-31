@@ -28,26 +28,26 @@ export class RoomService {
       throw new Error(`${roomId}Room Not Found`);
     }
 
-    return JSON.parse(result)
+    return JSON.parse(result);
   }
 
-  async joinRoom(roomId:number, nickname:string):Promise<ResponseRoomInfo>{
+  async joinRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
     const roomInfo = await this.findOne(roomId);
-    roomInfo.players.push(nickname)
-    const result = await this.modifyRoomInfo(roomInfo)
-    return result
+    roomInfo.players.push(nickname);
+    const result = await this.modifyRoomInfo(roomInfo);
+    return result;
   }
 
-  async leaveRoom(roomId:number, nickname:string):Promise<ResponseRoomInfo>{
-    const roomInfo = await this.findOne(roomId)
-    const {players} = roomInfo
-    const index = players.indexOf(nickname)
-    if(index !== -1){
-        players.splice(index,1)
+  async leaveRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
+    const roomInfo = await this.findOne(roomId);
+    const { players } = roomInfo;
+    const index = players.indexOf(nickname);
+    if (index !== -1) {
+      players.splice(index, 1);
     }
-    roomInfo.players = players
-    const result = await this.modifyRoomInfo(roomInfo)
-    return result
+    roomInfo.players = players;
+    const result = await this.modifyRoomInfo(roomInfo);
+    return result;
   }
 
   async createRoom(roomInfo: GameRoomDTO): Promise<IMessage> {
@@ -80,12 +80,12 @@ export class RoomService {
       throw new Error('Room Creation Failed.');
     }
 
-    const createdRoom = await this.findOne(roomId)
+    const createdRoom = await this.findOne(roomId);
 
     return {
       code: '200',
-      message:createdRoom
-    }
+      message: createdRoom,
+    };
   }
 
   async modifyRoomInfo(payload: GameRoomDTO): Promise<ResponseRoomInfo> {

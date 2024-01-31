@@ -22,10 +22,8 @@ export const PlayerStatuses = {
 
 export const Role = {
   CREATOR: 'CREATOR',
-  PLAYER:'PLAYER'
-}
-
-
+  PLAYER: 'PLAYER',
+};
 
 export interface GameRoomDTO {
   role: keyof typeof Role;
@@ -35,7 +33,7 @@ export interface GameRoomDTO {
   creatorProfilePic: string;
   creatorNickname: string;
   currentCount: number;
-  score:number;
+  score: number;
   maxCount: number;
   backgroundUrl: string;
   roomStatus: keyof typeof RoomStatuses;
