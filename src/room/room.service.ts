@@ -53,10 +53,10 @@ export class RoomService {
   async createRoom(roomInfo: GameRoomDTO): Promise<IMessage> {
     let roomId = 1;
 
-    if (roomInfo.password) {
-      const hashedPassword = await bcrypt.hash(roomInfo.password, 10);
-      roomInfo.password = hashedPassword;
-    }
+    // if (roomInfo.password) {
+    //   const hashedPassword = await bcrypt.hash(roomInfo.password, 10);
+    //   roomInfo.password = hashedPassword;
+    // }
 
     // 사용 중인 방 번호들을 가져오기
     const occupiedRooms = await this.redisClient.smembers('occupiedRooms');
@@ -95,14 +95,14 @@ export class RoomService {
 
     const roomInfo = JSON.parse(roomData);
     // 보낸사람이 방장인가?
-    if (roomInfo.owner !== payload.owner) {
+    if (roomInfo.role !== payload.role) {
       throw new Error('Only the room owner can modify room information');
     }
     // 수정될 비밀번호가 있으면, 변경된 것 해쉬화 후 저장 비밀번호가 안왔으면 그대로.
-    if (payload.password) {
-      const hashedPassword = await bcrypt.hash(payload.password, 10);
-      roomInfo.password = hashedPassword; // 업데이트된 비밀번호 적용
-    }
+    // if (payload.password) {
+    //   const hashedPassword = await bcrypt.hash(payload.password, 10);
+    //   roomInfo.password = hashedPassword; // 업데이트된 비밀번호 적용
+    // }
     const resultInfo = { ...roomInfo, ...payload };
 
     const result = await this.redisClient.set(
