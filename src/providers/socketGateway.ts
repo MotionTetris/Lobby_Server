@@ -115,7 +115,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('joinRoom')
   async joinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() { roomId }: { roomId: number },
+    @MessageBody() roomId:number ,
   ) {
     const nickname = await this.verifyToken(client);
     if(this.rooms[roomId]?.has(nickname)){

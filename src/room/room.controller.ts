@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { GameRoomDTO } from './DTO';
+import { GameRoomDTO, IMessage } from './DTO';
 import { RoomService } from './room.service';
 
 @Controller('room')
@@ -12,7 +12,7 @@ export class RoomController {
   }
 
   @Post()
-  async newRoom(@Body() roomInfo: GameRoomDTO): Promise<GameRoomDTO> {
+  async newRoom(@Body() roomInfo: GameRoomDTO): Promise<IMessage> {
     return await this.roomService.createRoom(roomInfo);
   }
 }
