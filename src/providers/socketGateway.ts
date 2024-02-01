@@ -44,9 +44,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async verifyToken(client: Socket): Promise<string> {
     const token = client.handshake.headers.authorization?.split(' ')[1];
-    // return this.jwtService.verify(token)
     try {
-      const { nickname } = await this.jwtService.decode(token);
+      const { nickname } = await this.jwtService.verify(token)
       return nickname;
     } catch (e) {
       client.emit('error', 'Invalid token. Connection refused.');
@@ -76,7 +75,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleConnection(client: Socket) {
-    // const decoded = this.jwtService.verify(token)
     const nickname: string = await this.verifyToken(client);
     const socketId = this.sockets.get(nickname);
     if (socketId) {
