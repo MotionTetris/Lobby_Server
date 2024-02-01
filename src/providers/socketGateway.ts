@@ -36,8 +36,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   rooms: Map<number, InGameRoomInfo> = new Map()
 
   verifyToken(client: Socket): Promise<string> {
-    // const {token} = client.handshake.auth
-    const token = client.handshake.headers.authorization.split(' ')[1]
+    const {token} = client.handshake.auth
     try {
       const {nickname} = this.jwtService.verify(token)
       return nickname;
