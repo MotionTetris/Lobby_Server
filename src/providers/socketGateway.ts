@@ -18,9 +18,8 @@ interface UserStatus {
   roomId: number;
 }
 
-interface StatusInGame {}
 
-@WebSocketGateway(3001, {
+@WebSocketGateway(3001,{
   cors: {
     origin: '*', // 모든 도메인에서의 접근을 허용합니다. 실제 사용 시에는 보안을 위해 구체적인 도메인을 명시하는 것이 좋습니다.
     credentials: true, // 쿠키를 사용할 경우 true로 설정
@@ -34,22 +33,20 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @WebSocketServer()
   server: Server;
-  lobbyUser: Set<string> = new Set();
-  // rooms: { [roomId: number]: Set<string> } = {};
   rooms: Map<number, Set<string>> = new Map()
-  user: { [nickname: string]: UserStatus } = {};
-  // user: Map<string, UserStatus> = new Map();
-  sockets: Map<string, string> = new Map();
-  statusInGame: Map<string, StatusInGame> = new Map();
 
-  async verifyToken(client: Socket): Promise<string> {
+  verifyToken(client: Socket): Promise<string> {
     const token = client.handshake.headers.authorization?.split(' ')[1];
     try {
-      const { nickname } = await this.jwtService.verify(token)
+      const {nickname} = this.jwtService.verify(token)
       return nickname;
     } catch (e) {
-      client.emit('error', 'Invalid token. Connection refused.');
-      client.disconnect();
+      client.emit('error', {
+        message:'Invalid token. Connection refused.',
+        error:e
+    });
+      console.log(e)
+      throw new Error('Token Error')
     }
   }
 
@@ -60,48 +57,32 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return false
   }
 
-  private restoreUserState(client: Socket, nickname: string) {
-    const { status, roomId } = this.user[nickname];
-    if (status == 'Lobby') {
-      client.join(status);
-    } else {
-      const gameStatus = this.statusInGame.get(nickname);
-      client.join(`${roomId}`);
-      client.emit('restoreState', gameStatus);
-      this.server
-        .to(`${roomId}`)
-        .emit('userRejoin', `${nickname}님이 다시 연결되었습니다.`);
-    }
-  }
-
   async handleConnection(client: Socket) {
-    const nickname: string = await this.verifyToken(client);
-    const socketId = this.sockets.get(nickname);
-    if (socketId) {
-      this.restoreUserState(client, nickname);
-    } else {
-      this.sockets.set(nickname, client.id);
-      this.sockets.set(client.id, nickname);
-      this.lobbyUser.add(nickname);
-      this.user[nickname] = { socketId: nickname, status: 'Lobby', roomId: 0 };
+    try{
+      const nickname: string = await this.verifyToken(client);
+      client.data={
+        nickname,
+        roomId:0
+      }
+  
       client.join('Lobby');
+    }catch(e){
+      client.disconnect()
     }
-  }
+    
+
+    
+}
 
   async handleDisconnect(client: Socket) {
-    const nickname = await this.verifyToken(client);
-    const userStatus = this.user[nickname];
-    if (userStatus) {
-      this.lobbyUser.delete(nickname);
-      if (userStatus.roomId && this.isRoomThere(userStatus.roomId)) {
-        this.rooms.get(userStatus.roomId).delete(nickname);
-        if (this.rooms.get(userStatus.roomId)?.size === 0) {
-          this.rooms.delete(userStatus.roomId);
-          await this.roomService.deleteRoom(userStatus.roomId);
+    const {nickname,roomId} = client.data
+      if ( this.isRoomThere(roomId)) {
+        this.rooms.get(roomId).delete(nickname);
+        if (this.rooms.get(roomId)?.size === 0) {
+          this.rooms.delete(roomId);
+          await this.roomService.deleteRoom(roomId);
         }
       }
-      delete this.user[client.id];
-    }
   }
 
   @SubscribeMessage('createRoom')
@@ -110,8 +91,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() { roomId }: { roomId: number },
   ) {
     const nickname = await this.verifyToken(client);
-    this.lobbyUser.delete(nickname);
-    this.user[nickname].roomId = roomId;
+    client.data.roomId = roomId
     this.rooms.set(roomId, new Set<string>());
     this.rooms.get(roomId).add(nickname);
     client.join(`${roomId}`);
@@ -136,10 +116,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
       return;
     }
-    this.lobbyUser.delete(nickname);
-    this.user[nickname].roomId = roomId;
-    this.rooms.get(roomId)?.add(nickname);
+    client.data.roomId = roomId;
+    this.rooms.get(roomId).add(nickname);
     client.join(`${roomId}`);
+    client.data.roomId = roomId
     const roomInfo = await this.roomService.joinRoom(roomId, nickname);
     client.emit('roomInfo', roomInfo);
     this.server.to(`${roomId}`).emit('joinUser', Array.from(this.rooms.get(roomId)));
@@ -162,6 +142,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
     client.leave(`${roomId}`);
+    client.data.roomId=0
     this.rooms.get(roomId).delete(nickname);
     if (this.rooms.get(roomId).size === 0) {
       this.rooms.delete(roomId);
