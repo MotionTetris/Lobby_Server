@@ -26,18 +26,25 @@ export const Role = {
 };
 
 export interface GameRoomDTO {
-  role: keyof typeof Role;
-  playerstatus: keyof typeof CreatorStatuses | keyof typeof PlayerStatuses;
-  roomId: number;
-  title: string;
-  creatorProfilePic: string;
+  roomTitle: string;
   creatorNickname: string;
   currentCount: number;
-  score: number;
   maxCount: number;
   backgroundUrl: string;
+  roomStatus: keyof typeof RoomStatuses; // Players들이 READY를 다 누르면 READY / 아니면 WAIT / 시작했으면 START
+  isLock: keyof typeof LockStatuses;
+  passWord:string;
+}
+
+export interface RES_GameRoomDTO {
+  roomId: number; // 방번호
+  roomTitle: string;
+  creatorNickname: string; // 방장 닉네임
+  currentCount: number; // 현재 인원
+  maxCount: number; // 방 최대 인원
+  backgroundUrl: string; // 방 배경 사진
   roomStatus: keyof typeof RoomStatuses;
   isLock: keyof typeof LockStatuses;
-  // password:string,
-  players: string[];
 }
+
+  

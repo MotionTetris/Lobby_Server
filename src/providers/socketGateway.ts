@@ -12,12 +12,12 @@ import { GameRoomDTO } from 'src/room/DTO';
 import { JwtService } from '@nestjs/jwt';
 import { RoomService } from '../room/room.service';
 
-interface UserStatus {
-  socketId: string;
-  status: string;
+interface InGameRoomInfo {
+  creatorNickname : string; 
+  playersNickname : Set<string> | undefined;
   roomId: number;
+  roomTitle: string;
 }
-
 
 @WebSocketGateway(3001,{
   cors: {
@@ -33,10 +33,11 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @WebSocketServer()
   server: Server;
-  rooms: Map<number, Set<string>> = new Map()
+  rooms: Map<number, InGameRoomInfo> = new Map()
 
   verifyToken(client: Socket): Promise<string> {
-    const token = client.handshake.headers.authorization?.split(' ')[1];
+    // const {token} = client.handshake.auth
+    const token = client.handshake.headers.authorization.split(' ')[1]
     try {
       const {nickname} = this.jwtService.verify(token)
       return nickname;
@@ -64,21 +65,17 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
         nickname,
         roomId:0
       }
-  
       client.join('Lobby');
     }catch(e){
       client.disconnect()
-    }
-    
-
-    
+    }   
 }
 
   async handleDisconnect(client: Socket) {
     const {nickname,roomId} = client.data
       if ( this.isRoomThere(roomId)) {
-        this.rooms.get(roomId).delete(nickname);
-        if (this.rooms.get(roomId)?.size === 0) {
+        this.rooms.get(roomId).playersNickname.delete(nickname);
+        if (this.rooms.has(roomId)) {
           this.rooms.delete(roomId);
           await this.roomService.deleteRoom(roomId);
         }
@@ -88,14 +85,24 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('createRoom')
   async createRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() { roomId }: { roomId: number },
+    @MessageBody() data,
   ) {
     const nickname = await this.verifyToken(client);
+    const {roomId, roomTitle, creatorNickname} = data
     client.data.roomId = roomId
-    this.rooms.set(roomId, new Set<string>());
-    this.rooms.get(roomId).add(nickname);
+    const roomInfo:InGameRoomInfo = {
+      roomId,
+      creatorNickname,
+      roomTitle,
+      playersNickname: new Set([nickname])
+    }
+    if(this.rooms.has(roomId)){
+      client.emit('error','이미 방이 존재함.')
+      return
+    }
+    this.rooms.set(roomId, roomInfo)
     client.join(`${roomId}`);
-    client.emit('createRoom', Array.from(this.rooms.get(roomId)));
+    client.emit('createRoom', {...roomInfo, playersNickname:Array.from(roomInfo.playersNickname)});
   }
 
   @SubscribeMessage('joinRoom')
@@ -109,20 +116,19 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('joinUser','방이 없음.')
       return
     }
-    if (this.rooms.get(roomId).has(nickname)) {
+    if (this.rooms.has(roomId) && this.rooms.get(roomId).playersNickname.has(nickname)) {
       client.emit('joinUser', {
-        rooms: Array.from(this.rooms.get(roomId)),
+        rooms: Array.from(this.rooms.get(roomId).playersNickname),
         mesage: '이미 들어와 있음',
       });
       return;
     }
-    client.data.roomId = roomId;
-    this.rooms.get(roomId).add(nickname);
     client.join(`${roomId}`);
     client.data.roomId = roomId
-    const roomInfo = await this.roomService.joinRoom(roomId, nickname);
-    client.emit('roomInfo', roomInfo);
-    this.server.to(`${roomId}`).emit('joinUser', Array.from(this.rooms.get(roomId)));
+    const roomInfo = this.rooms.get(roomId)
+    roomInfo.playersNickname.add(nickname)
+    client.emit('roomInfo', {...roomInfo,playersNickname:Array.from(roomInfo.playersNickname)});
+    this.server.to(`${roomId}`).emit('joinUser', Array.from(roomInfo.playersNickname));
   }
 
   @SubscribeMessage('leaveRoom')
@@ -131,25 +137,25 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() { roomId }: { roomId: number },
   ) {
     const nickname = await this.verifyToken(client);
-    const isRoom = this.isRoomThere(roomId)
-    const hasRoomNickname = this.rooms.get(roomId).has(nickname)
+    const isRoom = this.rooms.has(roomId)
+    const hasRoomNickname = this.rooms.get(roomId).playersNickname.has(nickname)
     if(!isRoom){
       client.emit('leave',"방이 존재하지 않음.")
       return
     }
-    if ( !hasRoomNickname) {
+    if ( !hasRoomNickname || client.data.roomId !== roomId) {
       client.emit('leave', '방에 존재하지 않음.');
       return;
     }
     client.leave(`${roomId}`);
     client.data.roomId=0
-    this.rooms.get(roomId).delete(nickname);
-    if (this.rooms.get(roomId).size === 0) {
+    this.rooms.get(roomId).playersNickname.delete(nickname);
+    if (this.rooms.get(roomId).playersNickname.size === 0) {
       this.rooms.delete(roomId);
       await this.roomService.deleteRoom(roomId);
       client.emit('leave', '방 삭제');
     } else {
-      const roomInfo = await this.roomService.leaveRoom(roomId, nickname);
+      const roomInfo = this.rooms.get(roomId)
       client.join('lobby');
       this.server.to(`${roomId}`).emit('leave', roomInfo);
     }
@@ -158,11 +164,16 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('modifyRoomInfo')
   async modifyRoomInfo(
     @ConnectedSocket() client: Socket,
-    @MessageBody() roomInfo: GameRoomDTO,
+    @MessageBody() newRoomInfo: GameRoomDTO,
   ) {
-    await this.verifyToken(client);
-    const resultInfo = await this.roomService.modifyRoomInfo(roomInfo);
-    const { roomId } = roomInfo;
+    const nickname = await this.verifyToken(client);
+    const {roomId} = client.data
+    const {creatorNickname} = await this.roomService.findOne(roomId)
+    if(nickname !== creatorNickname){
+      client.emit('error','방장이 아님')
+      return
+    }
+    const resultInfo = await this.roomService.modifyRoomInfo(roomId, newRoomInfo);
     this.server.to(`${roomId}`).emit('modifyRoomInfo', resultInfo);
   }
 }

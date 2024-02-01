@@ -1,6 +1,6 @@
-import { GameRoomDTO } from './GameRoom_DTO';
+import { RES_GameRoomDTO } from './GameRoom_DTO';
 
 export interface IMessage {
   code: string;
-  message: GameRoomDTO;
+  message: RES_GameRoomDTO;
 }

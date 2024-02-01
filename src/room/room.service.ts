@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { GameRoomDTO } from './DTO';
+import { GameRoomDTO, RES_GameRoomDTO } from './DTO';
 import { Redis } from 'ioredis';
 import { RedisProvider } from 'src/providers';
 import { IMessage } from './DTO/message';
 import * as bcrypt from 'bcrypt';
-import { ResponseRoomInfo } from './DTO/ResponstRoomInfo';
 
 @Injectable()
 export class RoomService {
@@ -21,42 +20,42 @@ export class RoomService {
     return rooms.filter(Boolean).map((room) => JSON.parse(room as string));
   }
 
-  async findOne(roomId: number): Promise<GameRoomDTO> {
+  async findOne(roomId: number): Promise<RES_GameRoomDTO> {
     const result = await this.redisClient.get(`Room:${roomId}`);
 
     if (!result) {
       throw new Error(`${roomId}Room Not Found`);
     }
-
-    return JSON.parse(result);
+    const {passWord, ...rest} = JSON.parse(result)
+    return rest
   }
 
-  async joinRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
-    const roomInfo = await this.findOne(roomId);
-    roomInfo.players.push(nickname);
-    const result = await this.modifyRoomInfo(roomInfo);
-    return result;
-  }
+  // async joinRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
+  //   const roomInfo:GameRoomDTO = await this.findOne(roomId);
+  //   roomInfo..push(nickname);
+  //   const result = await this.modifyRoomInfo(roomInfo);
+  //   return result;
+  // }
 
-  async leaveRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
-    const roomInfo = await this.findOne(roomId);
-    const { players } = roomInfo;
-    const index = players.indexOf(nickname);
-    if (index !== -1) {
-      players.splice(index, 1);
-    }
-    roomInfo.players = players;
-    const result = await this.modifyRoomInfo(roomInfo);
-    return result;
-  }
+  // async leaveRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
+  //   const roomInfo = await this.findOne(roomId);
+  //   const { players } = roomInfo;
+  //   const index = players.indexOf(nickname);
+  //   if (index !== -1) {
+  //     players.splice(index, 1);
+  //   }
+  //   roomInfo.players = players;
+  //   const result = await this.modifyRoomInfo(roomInfo);
+  //   return result;
+  // }
 
   async createRoom(roomInfo: GameRoomDTO): Promise<IMessage> {
     let roomId = 1;
 
-    // if (roomInfo.password) {
-    //   const hashedPassword = await bcrypt.hash(roomInfo.password, 10);
-    //   roomInfo.password = hashedPassword;
-    // }
+    if (roomInfo.passWord) {
+      const hashedPassword = await bcrypt.hash(roomInfo.passWord, 10);
+      roomInfo.passWord = hashedPassword;
+    }
 
     // 사용 중인 방 번호들을 가져오기
     const occupiedRooms = await this.redisClient.smembers('occupiedRooms');
@@ -88,21 +87,16 @@ export class RoomService {
     };
   }
 
-  async modifyRoomInfo(payload: GameRoomDTO): Promise<ResponseRoomInfo> {
-    const { roomId } = payload;
+  async modifyRoomInfo(roomId:number, payload: GameRoomDTO): Promise<RES_GameRoomDTO> {
     const roomData = await this.redisClient.get(`Room:${roomId}`);
     if (!roomData) throw new Error(`Room ${roomId} not found`);
 
     const roomInfo = JSON.parse(roomData);
-    // 보낸사람이 방장인가?
-    if (roomInfo.role !== payload.role) {
-      throw new Error('Only the room owner can modify room information');
-    }
     // 수정될 비밀번호가 있으면, 변경된 것 해쉬화 후 저장 비밀번호가 안왔으면 그대로.
-    // if (payload.password) {
-    //   const hashedPassword = await bcrypt.hash(payload.password, 10);
-    //   roomInfo.password = hashedPassword; // 업데이트된 비밀번호 적용
-    // }
+    if (payload.passWord) {
+      const hashedPassword = await bcrypt.hash(payload.passWord, 10);
+      roomInfo.password = hashedPassword; // 업데이트된 비밀번호 적용
+    }
     const resultInfo = { ...roomInfo, ...payload };
 
     const result = await this.redisClient.set(
