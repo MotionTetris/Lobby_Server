@@ -38,10 +38,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   verifyToken(client: Socket): Promise<string> {
     const {authToken} = client.handshake.auth
     const token = authToken.split(' ')
-    console.log(token[1])
+    console.log(token[0])
     
     try {
-      if(token[0] === 'Bearer'){
+      if(token[0] !== 'Bearer'){
         throw new Error('토큰 형식이 맞지 않음.')
       }
 
