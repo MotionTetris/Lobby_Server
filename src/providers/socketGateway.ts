@@ -45,8 +45,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new Error('토큰 형식이 맞지 않음.')
       }
 
-      const {nickname} = this.jwtService.verify(token[1])
-      return nickname;
+      const payload = this.jwtService.verify(token[1])
+      return payload;
     } catch (e) {
       client.emit('error', {
         message:'Invalid token. Connection refused.',
