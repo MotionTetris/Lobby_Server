@@ -92,9 +92,11 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data,
   ) {
     const nickname = await this.verifyToken(client);
+    console.log('creatorNickname::::',nickname)
     const {roomId, roomTitle, creatorNickname} = data
     if(nickname !== creatorNickname){
       client.emit('error','방 정보와 송신자 정보가 불일치함')
+      return
     }
     client.data.roomId = roomId
     const roomInfo:InGameRoomInfo = {
