@@ -66,6 +66,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try{
       const nickname: string = await this.verifyToken(client);
+      console.log(nickname,'어서 오시고~') 
       client.data={
         nickname,
         roomId:0
