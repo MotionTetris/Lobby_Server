@@ -38,6 +38,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   verifyToken(client: Socket): Promise<string> {
     const {authToken} = client.handshake.auth
     const token = authToken.split(' ')
+    console.log(token[1])
     
     try {
       if(token[0] === 'Bearer'){

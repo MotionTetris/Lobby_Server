@@ -52,7 +52,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     this.logger.error(logMessage);
 
     const errorResponse = {
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toString(),
       path: request.url,
       message:
         exception instanceof HttpException
