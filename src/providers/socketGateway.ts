@@ -37,16 +37,14 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   verifyToken(client: Socket): Promise<string> {
     const {token:authToken} = client.handshake.auth
-    const token = authToken.split(' ')
-    console.log(token[0])
-    
+    const token = authToken.split(' ')    
     try {
       if(token[0] !== 'Bearer'){
         throw new Error('토큰 형식이 맞지 않음.')
       }
 
-      const payload = this.jwtService.verify(token[1])
-      return payload;
+      const {sub} = this.jwtService.verify(token[1])
+      return sub;
     } catch (e) {
       client.emit('error', {
         message:'Invalid token. Connection refused.',
