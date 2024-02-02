@@ -37,6 +37,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   verifyToken(client: Socket): Promise<string> {
     const {token} = client.handshake.auth
+    console.log(token)
+    
     try {
       const {nickname} = this.jwtService.verify(token)
       return nickname;
@@ -45,8 +47,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
         message:'Invalid token. Connection refused.',
         error:e
     });
-      console.log(e)
-      throw new Error('Token Error')
+      console.log('Socket Token Verify Error: ', e)
     }
   }
 
@@ -88,6 +89,9 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const nickname = await this.verifyToken(client);
     const {roomId, roomTitle, creatorNickname} = data
+    if(nickname !== creatorNickname){
+      client.emit('error','방 정보와 송신자 정보가 불일치함')
+    }
     client.data.roomId = roomId
     const roomInfo:InGameRoomInfo = {
       roomId,
