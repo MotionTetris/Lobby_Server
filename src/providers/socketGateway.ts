@@ -36,11 +36,15 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   rooms: Map<number, InGameRoomInfo> = new Map()
 
   verifyToken(client: Socket): Promise<string> {
-    const {token} = client.handshake.auth
-    console.log(token)
+    const {authToken} = client.handshake.auth
+    const token = authToken.split(' ')
     
     try {
-      const {nickname} = this.jwtService.verify(token)
+      if(token[0] === 'Bearer'){
+        throw new Error('토큰 형식이 맞지 않음.')
+      }
+
+      const {nickname} = this.jwtService.verify(token[1])
       return nickname;
     } catch (e) {
       client.emit('error', {
