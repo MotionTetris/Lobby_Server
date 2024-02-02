@@ -23,7 +23,8 @@ import { RoomModule } from './room/room.module';
       },
     }),
     JwtModule.register({
-      secret: `${config.Secret}`
+      secret: `${config.Secret}`,
+      signOptions:{expiresIn:'600s'}
     }),
 
     ConfigModule.forRoot(),
