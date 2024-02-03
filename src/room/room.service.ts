@@ -116,6 +116,20 @@ export class RoomService {
     return resultInfo;
   }
 
+  async changeCreator(roomId:number, creatorNickname: string): Promise<boolean>{
+    const roomInfo = await this.findOne(roomId)
+    const result = await this.redisClient.set(
+      `Room:${roomId}`,
+      JSON.stringify({...roomInfo, creatorNickname})
+    )
+      console.log(result)
+    if(result === 'OK'){
+      return true
+    }
+
+    return false
+  }
+
   async deleteRoom(roomId: number): Promise<void> {
     const roomKey = `Room:${roomId}`;
 
