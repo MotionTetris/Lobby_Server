@@ -36,7 +36,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   rooms: Map<number, InGameRoomInfo> = new Map()
 
   verifyToken(client: Socket): Promise<string> {
-    const {token:authToken} = client.handshake.auth
+    // const {token:authToken} = client.handshake.auth
+    const authToken = client.handshake.headers.authorization
     const token = authToken.split(' ')    
     try {
       if(token[0] !== 'Bearer'){
@@ -89,20 +90,19 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('createRoom')
   async createRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data,
+    @MessageBody() {roomId}:{roomId:number},
   ) {
     const nickname = await this.verifyToken(client);
-    console.log('creatorNickname::::',nickname)
-    const {roomId, roomTitle, creatorNickname} = data
-    if(nickname !== creatorNickname){
+    const prevRoomInfo = await this.roomService.findOne(roomId)
+    if(roomId !== prevRoomInfo.roomId || prevRoomInfo.creatorNickname !== nickname){
       client.emit('error','방 정보와 송신자 정보가 불일치함')
       return
     }
     client.data.roomId = roomId
     const roomInfo:InGameRoomInfo = {
       roomId,
-      creatorNickname,
-      roomTitle,
+      creatorNickname: prevRoomInfo.creatorNickname,
+      roomTitle: prevRoomInfo.roomTitle,
       playersNickname: new Set([nickname])
     }
     if(this.rooms.has(roomId)){
@@ -111,7 +111,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     this.rooms.set(roomId, roomInfo)
     client.join(`${roomId}`);
-    client.emit('createRoom', {...roomInfo, playersNickname:Array.from(roomInfo.playersNickname)});
+    client.emit('createRoom', {...roomInfo, playersNickname:[nickname]});
   }
 
   @SubscribeMessage('joinRoom')
