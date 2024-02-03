@@ -18,6 +18,7 @@ interface InGameRoomInfo {
   playersNickname: Set<string> | undefined;
   roomId: number;
   roomTitle: string;
+  maxCount: number;
 }
 
 @WebSocketGateway(3001, {
@@ -49,7 +50,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (e) {
       client.emit('error', {
         message: 'Invalid token. Connection refused.',
-        error: e
+        error: e.message
       });
       console.log('Socket Token Verify Error: ', e)
     }
@@ -103,7 +104,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       roomId,
       creatorNickname: prevRoomInfo.creatorNickname,
       roomTitle: prevRoomInfo.roomTitle,
-      playersNickname: new Set([nickname])
+      playersNickname: new Set([nickname]),
+      maxCount: prevRoomInfo.maxCount
     }
     if (this.rooms.has(roomId)) {
       client.emit('error', '이미 방이 존재함.')
@@ -126,8 +128,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       const isRoom = this.isRoomThere(roomId)
       if (!isRoom) {
-        client.emit('error', 'joinUser: 방이 없음.')
-        return
+        throw new Error("joinUser: 방이 없음.")
       }
       if (this.rooms.has(roomId) && this.rooms.get(roomId).playersNickname.has(nickname)) {
         client.emit('error', {
@@ -136,15 +137,20 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
         return;
       }
+
+      const roomInfo = this.rooms.get(roomId)
+      const currCount = Array.from(roomInfo.playersNickname).length
+      if(currCount >= roomInfo.maxCount ){
+        throw new Error("인원 초과요~")
+      }
       client.join(`${roomId}`);
       client.data.roomId = roomId
-      const roomInfo = this.rooms.get(roomId)
-      roomInfo.playersNickname.add(nickname)
+      roomInfo.playersNickname.add(nickname)      
       client.emit('roomInfo', { ...roomInfo, playersNickname: Array.from(roomInfo.playersNickname) });
       this.server.to(`${roomId}`).emit('joinUser', Array.from(roomInfo.playersNickname));
 
     } catch (e) {
-      client.emit('error', 'nickname이 없음')
+      client.emit('error', e.message)
     }
   }
 
@@ -174,7 +180,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.roomService.deleteRoom(roomId);
       client.emit('leave', '방 삭제');
     } 
-
+    
     // 나간 유저가 방장(creatorNickname)이면 방장 변경.
     if(nickname === roomInfo.creatorNickname){
       const players = Array.from(roomInfo.playersNickname)
