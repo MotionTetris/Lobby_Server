@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { GameRoomDTO, IMessage } from './DTO';
 import { RoomService } from './room.service';
 
@@ -12,7 +13,8 @@ export class RoomController {
   }
 
   @Post()
-  async newRoom(@Body() roomInfo: GameRoomDTO): Promise<IMessage> {
-    return await this.roomService.createRoom(roomInfo);
+  async newRoom(@Req() req:Request, @Body() roomInfo: GameRoomDTO): Promise<IMessage> {
+    const token = req.headers.authorization.split(' ')[1]
+    return await this.roomService.createRoom(token, roomInfo);
   }
 }

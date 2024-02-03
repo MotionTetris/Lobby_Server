@@ -4,11 +4,15 @@ import { Redis } from 'ioredis';
 import { RedisProvider } from 'src/providers';
 import { IMessage } from './DTO/message';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class RoomService {
   private readonly redisClient: Redis;
-  constructor(private RedisProvider: RedisProvider) {
+  constructor(
+    private RedisProvider: RedisProvider,
+    private jwtService:JwtService
+    ) {
     this.redisClient = this.RedisProvider.getClient();
   }
 
@@ -49,7 +53,8 @@ export class RoomService {
   //   return result;
   // }
 
-  async createRoom(roomInfo: GameRoomDTO): Promise<IMessage> {
+  async createRoom(token: string, roomInfo: GameRoomDTO): Promise<IMessage> {
+    const {sub:creatorNickname} = this.jwtService.decode(token) 
     let roomId = 1;
 
     if (roomInfo.passWord) {
@@ -66,7 +71,7 @@ export class RoomService {
       roomId++;
     }
     roomInfo['roomId'] = roomId;
-
+    roomInfo['creatorNickname'] = creatorNickname
     // 새 방 정보를 Redis에 저장합니다.
     const roomKey = `Room:${roomId}`;
     const tx_result = await this.redisClient

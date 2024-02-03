@@ -37,6 +37,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   verifyToken(client: Socket): Promise<string> {
     const {token:authToken} = client.handshake.auth
+    // const authToken = client.handshake.headers.authorization
     const token = authToken.split(' ')    
     try {
       if(token[0] !== 'Bearer'){
@@ -152,7 +153,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return
     }
     if ( !hasRoomNickname || client.data.roomId !== roomId) {
-      client.emit('leave', '방에 존재하지 않음.');
+      client.emit('leave', '유저가 방에 존재하지 않음.');
       return;
     }
     client.leave(`${roomId}`);
