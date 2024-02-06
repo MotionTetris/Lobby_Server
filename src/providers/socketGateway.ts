@@ -45,8 +45,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   rooms: Map<number, InGameRoomInfo> = new Map();
 
   verifyToken(client: Socket): Promise<string> {
-    // const {token:authToken} = client.handshake.auth
-    const authToken = client.handshake.headers.authorization;
+    const {token:authToken} = client.handshake.auth
+    // const authToken = client.handshake.headers.authorization;
     const token = authToken.split(' ');
     try {
       if (token[0] !== 'Bearer') {
