@@ -11,8 +11,8 @@ export class RoomService {
   private readonly redisClient: Redis;
   constructor(
     private RedisProvider: RedisProvider,
-    private jwtService:JwtService
-    ) {
+    private jwtService: JwtService,
+  ) {
     this.redisClient = this.RedisProvider.getClient();
   }
 
@@ -30,31 +30,12 @@ export class RoomService {
     if (!result) {
       throw new Error(`${roomId}Room Not Found`);
     }
-    const {passWord, ...rest} = JSON.parse(result)
-    return rest
+    const { passWord, ...rest } = JSON.parse(result);
+    return rest;
   }
 
-  // async joinRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
-  //   const roomInfo:GameRoomDTO = await this.findOne(roomId);
-  //   roomInfo..push(nickname);
-  //   const result = await this.modifyRoomInfo(roomInfo);
-  //   return result;
-  // }
-
-  // async leaveRoom(roomId: number, nickname: string): Promise<ResponseRoomInfo> {
-  //   const roomInfo = await this.findOne(roomId);
-  //   const { players } = roomInfo;
-  //   const index = players.indexOf(nickname);
-  //   if (index !== -1) {
-  //     players.splice(index, 1);
-  //   }
-  //   roomInfo.players = players;
-  //   const result = await this.modifyRoomInfo(roomInfo);
-  //   return result;
-  // }
-
   async createRoom(token: string, roomInfo: GameRoomDTO): Promise<IMessage> {
-    const {sub:creatorNickname} = this.jwtService.decode(token) 
+    const { sub: creatorNickname } = this.jwtService.decode(token);
     let roomId = 1;
 
     if (roomInfo.passWord) {
@@ -71,7 +52,7 @@ export class RoomService {
       roomId++;
     }
     roomInfo['roomId'] = roomId;
-    roomInfo['creatorNickname'] = creatorNickname
+    roomInfo['creatorNickname'] = creatorNickname;
     // 새 방 정보를 Redis에 저장합니다.
     const roomKey = `Room:${roomId}`;
     const tx_result = await this.redisClient
@@ -92,7 +73,10 @@ export class RoomService {
     };
   }
 
-  async modifyRoomInfo(roomId:number, payload: GameRoomDTO): Promise<RES_GameRoomDTO> {
+  async modifyRoomInfo(
+    roomId: number,
+    payload: GameRoomDTO,
+  ): Promise<RES_GameRoomDTO> {
     const roomData = await this.redisClient.get(`Room:${roomId}`);
     if (!roomData) throw new Error(`Room ${roomId} not found`);
 
@@ -116,18 +100,21 @@ export class RoomService {
     return resultInfo;
   }
 
-  async changeCreator(roomId:number, creatorNickname: string): Promise<boolean>{
-    const roomInfo = await this.findOne(roomId)
+  async changeCreator(
+    roomId: number,
+    creatorNickname: string,
+  ): Promise<boolean> {
+    const roomInfo = await this.findOne(roomId);
     const result = await this.redisClient.set(
       `Room:${roomId}`,
-      JSON.stringify({...roomInfo, creatorNickname})
-    )
-      console.log(result)
-    if(result === 'OK'){
-      return true
+      JSON.stringify({ ...roomInfo, creatorNickname }),
+    );
+    console.log(result);
+    if (result === 'OK') {
+      return true;
     }
 
-    return false
+    return false;
   }
 
   async deleteRoom(roomId: number): Promise<void> {

@@ -33,7 +33,7 @@ export interface GameRoomDTO {
   backgroundUrl: string;
   roomStatus: keyof typeof RoomStatuses; // Players들이 READY를 다 누르면 READY / 아니면 WAIT / 시작했으면 START
   isLock: keyof typeof LockStatuses;
-  passWord:string;
+  passWord: string;
 }
 
 export interface RES_GameRoomDTO {
@@ -46,5 +46,3 @@ export interface RES_GameRoomDTO {
   roomStatus: keyof typeof RoomStatuses;
   isLock: keyof typeof LockStatuses;
 }
-
-  

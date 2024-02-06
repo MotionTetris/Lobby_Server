@@ -13,8 +13,11 @@ export class RoomController {
   }
 
   @Post()
-  async newRoom(@Req() req:Request, @Body() roomInfo: GameRoomDTO): Promise<IMessage> {
-    const token = req.headers.authorization.split(' ')[1]
+  async newRoom(
+    @Req() req: Request,
+    @Body() roomInfo: GameRoomDTO,
+  ): Promise<IMessage> {
+    const token = req.headers.authorization.split(' ')[1];
     return await this.roomService.createRoom(token, roomInfo);
   }
 }
