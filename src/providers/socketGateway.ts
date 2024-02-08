@@ -172,6 +172,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
           rooms: Array.from(this.rooms.get(roomId).playersNickname),
           mesage: 'joinUser 이미 들어와 있음',
         });
+        client.emit('allReady',true)
         return;
       }
 
