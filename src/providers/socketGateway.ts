@@ -145,6 +145,9 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.rooms.set(roomId, roomInfo);
     client.join(`${roomId}`);
     client.emit('createRoom',response);
+    if(roomInfo.maxCount===1){
+      client.emit('allReady',true)
+    }
   }
 
   @SubscribeMessage('joinRoom')
