@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { LobbyGateway } from 'src/lobby/lobby.gateway';
-import { AppGateway, RedisProvider } from 'src/providers';
-import { RoomManager } from 'src/providers/room.manager';
+import { RedisProvider, RoomManager } from 'src/providers';
 import { RoomController } from './room.controller';
 import { RoomService } from './room.service';
 
