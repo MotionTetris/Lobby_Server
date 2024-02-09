@@ -87,6 +87,9 @@ export class RoomManager {
 
   removePlayerFromRoom(roomId: number, playerName: string): void {
     const room = this.getRoom(roomId);
+    if(roomId === 0){
+      return
+    }
     if (room) {
       room.playersNickname.delete(playerName);
       if (room.playersNickname.size === 0) {
