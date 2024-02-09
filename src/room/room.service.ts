@@ -16,7 +16,7 @@ export class RoomService {
     this.redisClient = this.RedisProvider.getClient();
   }
 
-  async findAll(): Promise<GameRoomDTO[]> {
+  async findAll(): Promise<GameRoomDTO[]|null[]> {
     const keys = await this.redisClient.keys('Room:*');
     const rooms = await Promise.all(
       keys.map((key) => this.redisClient.get(key)),
@@ -24,7 +24,7 @@ export class RoomService {
     return rooms.filter(Boolean).map((room) => JSON.parse(room as string));
   }
 
-  async findOne(roomId: number): Promise<RES_GameRoomDTO> {
+  async findOne(roomId: number): Promise<RES_GameRoomDTO|null> {
     const result = await this.redisClient.get(`Room:${roomId}`);
 
     if (!result) {
@@ -75,7 +75,7 @@ export class RoomService {
 
   async modifyRoomInfo(
     roomId: number,
-    payload: GameRoomDTO,
+    payload: Partial<GameRoomDTO>,
   ): Promise<RES_GameRoomDTO> {
     const roomData = await this.redisClient.get(`Room:${roomId}`);
     if (!roomData) throw new Error(`Room ${roomId} not found`);
