@@ -94,7 +94,7 @@ export class LobbyGateway {
       const nickname = await this.verifyToken(client);
       const roomInfo = this.roomManger.getRoom(roomId);
       console.log('방 상태 생성 되었나??',roomInfo)
-      if(roomInfo){
+      if(!roomInfo){
         throw new Error('joinUser: 방이 없음');
       }
 
