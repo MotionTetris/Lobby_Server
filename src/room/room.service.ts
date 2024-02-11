@@ -16,7 +16,7 @@ export class RoomService {
     this.redisClient = this.RedisProvider.getClient();
   }
 
-  async findAll(): Promise<GameRoomDTO[]|null[]> {
+  async findAll(): Promise<GameRoomDTO[] | null[]> {
     const keys = await this.redisClient.keys('Room:*');
     const rooms = await Promise.all(
       keys.map((key) => this.redisClient.get(key)),
@@ -24,7 +24,7 @@ export class RoomService {
     return rooms.filter(Boolean).map((room) => JSON.parse(room as string));
   }
 
-  async findOne(roomId: number): Promise<RES_GameRoomDTO|null> {
+  async findOne(roomId: number): Promise<RES_GameRoomDTO | null> {
     const result = await this.redisClient.get(`Room:${roomId}`);
 
     if (!result) {
