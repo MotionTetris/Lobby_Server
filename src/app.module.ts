@@ -2,7 +2,7 @@ import { Module, Global } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisModule } from '@liaoliaots/nestjs-redis';
-import { JwtAuthGuard } from 'src/providers';
+import { JwtAuthGuard, RedisProvider } from 'src/providers';
 import { JwtModule } from '@nestjs/jwt';
 import config from '../config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
@@ -41,6 +41,7 @@ import { RoomModule } from './room/room.module';
       useClass: AllExceptionsFilter,
     },
     AppService,
+    RedisProvider,
   ],
   exports: [JwtModule],
 })

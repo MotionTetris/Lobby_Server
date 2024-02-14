@@ -1,10 +1,18 @@
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import {
+  ConnectedSocket,
+  MessageBody,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameRoomDTO } from 'src/room/DTO';
 import { JwtService } from '@nestjs/jwt';
 import { RoomService } from '../room/room.service';
 import { RoomManager } from 'src/providers/room.manager';
-import { emit } from 'process';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { RedisProvider } from 'src/providers';
+import Redis from 'ioredis';
 
 @WebSocketGateway(3001, {
   cors: {
@@ -12,60 +20,103 @@ import { emit } from 'process';
     credentials: true,
   },
 })
-
 export class LobbyGateway {
-
+  private readonly redisClient: Redis;
   constructor(
     private jwtService: JwtService,
     private roomService: RoomService,
-    private roomManger: RoomManager
-  ) { }
+    private roomManger: RoomManager,
+    private RedisProvider: RedisProvider,
+  ) {
+    this.redisClient = this.RedisProvider.getClient();
+  }
 
   @WebSocketServer()
   server: Server;
 
-  async verifyToken(client: Socket): Promise<string> {
-      const { token: authToken } = client.handshake.auth;
-      if (!authToken.startsWith('Bearer ')) throw new Error('Invalid token format.');
-      const { sub: nickname } = this.jwtService.verify(authToken.split(' ')[1]);
-      return nickname;
+  @Cron(CronExpression.EVERY_MINUTE)
+  async synchronizeRooms() {
+    const rooms = await this.redisClient.keys('RoomLastActive:*');
+    const currentTime = Date.now();
+
+    rooms.forEach(async (roomKey) => {
+      const lastActiveTime = parseInt(await this.redisClient.get(roomKey));
+      if (currentTime - lastActiveTime > 60000) {
+        const roomId = parseInt(roomKey.split(':')[1]);
+        const room = this.server.sockets.adapter.rooms.get(`${roomId}`);
+        const roomInfo = this.roomManger.getRoom(roomId);
+        if (room && !roomInfo.status) {
+          room.forEach((socketId) => {
+            const socket = this.server.sockets.sockets.get(socketId);
+
+            if (socket) {
+              socket.leave(`${roomId}`);
+              socket.join('Lobby');
+            }
+          });
+          this.roomService.deleteRoom(roomId);
+          this.roomManger.deleteRoom(roomId);
+          console.log('통신없음. 방 삭제.');
+        }
+      }
+    });
   }
 
-  async handleConnection(client:Socket){
-    try{
-      const nickname:string = await this.verifyToken(client);
-      console.log(nickname,'님 입장 하십니다~');
+  async updateLastActiveTime(roomId: number) {
+    const currentTime = Date.now();
+    await this.redisClient.set(
+      `RoomLastActive:${roomId}`,
+      currentTime.toString(),
+    );
+  }
+
+  async verifyToken(client: Socket): Promise<string> {
+    const { token: authToken } = client.handshake.auth;
+    if (!authToken.startsWith('Bearer '))
+      throw new Error('Invalid token format.');
+    const { sub: nickname } = this.jwtService.verify(authToken.split(' ')[1]);
+    return nickname;
+  }
+
+  async handleConnection(client: Socket) {
+    try {
+      const nickname: string = await this.verifyToken(client);
+      console.log(nickname, '님 입장 하십니다~');
       client.data = {
         nickname,
-        userRoom:0
+        userRoom: 0,
       };
       client.join('Lobby');
-    }catch(err){
-      console.error(err)
-      client.emit('error',err.message)
+    } catch (err) {
+      console.error(err);
+      client.emit('error', err.message);
       client.disconnect();
     }
   }
 
-  async handleDisconnect(client:Socket){
-    try{
-      const {nickname, userRoom} = client.data;
-      this.roomManger.removePlayerFromRoom(userRoom, nickname)
-      console.log(nickname,'연결 끊김.')
-    }catch(err){
+  async handleDisconnect(client: Socket) {
+    try {
+      const { nickname, userRoom } = client.data;
+      this.roomManger.removePlayerFromRoom(userRoom, nickname);
+      console.log(nickname, '연결 끊김.');
+    } catch (err) {
       console.error(err);
-      client.emit('error',err.message)
+      client.emit('error', err.message);
     }
   }
 
   @SubscribeMessage('createRoom')
   async createRoom(
-    @ConnectedSocket() client:Socket,
-    @MessageBody() {roomId}:{roomId:number}
-  ){
-    try{
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { roomId }: { roomId: number },
+  ) {
+    try {
       const nickname = await this.verifyToken(client);
-      const roomInfo = await this.roomManger.createRoomInfo(roomId, nickname, client);
+      const roomInfo = await this.roomManger.createRoomInfo(
+        roomId,
+        nickname,
+        client,
+      );
       client.data.userRoom = roomId;
       const DTO = this.roomManger.changeToDTO(roomInfo);
       if (this.roomManger.getRoom(roomId)) {
@@ -75,40 +126,41 @@ export class LobbyGateway {
 
       this.roomManger.createRoom(roomId, roomInfo);
       client.join(`${roomId}`);
-      client.emit('createRoom',DTO);
-      if(roomInfo.maxCount===1){
+      client.emit('createRoom', DTO);
+      if (roomInfo.maxCount === 1) {
         client.emit('allReady', true);
-      }  
-    }catch(err){
+      }
+      this.updateLastActiveTime(roomId);
+    } catch (err) {
       console.error(err);
-      client.emit('error',err.message);
+      client.emit('error', err.message);
     }
   }
 
   @SubscribeMessage('joinRoom')
   async joinRoom(
-    @ConnectedSocket() client:Socket,
-    @MessageBody() {roomId}:{roomId:number}
-  ){
-    try{
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { roomId }: { roomId: number },
+  ) {
+    try {
       const nickname = await this.verifyToken(client);
       const roomInfo = this.roomManger.getRoom(roomId);
-      console.log('방 상태 생성 되었나??',roomInfo)
-      if(!roomInfo){
-        throw new Error('joinUser: 방이 없음');
+      console.log('방 상태 생성 되었나??', roomInfo);
+      if (!roomInfo) {
+        throw new Error('joinRoom: 방이 없음');
       }
 
-      if(roomInfo.playersNickname.has(nickname)){
+      if (roomInfo.playersNickname.has(nickname)) {
         client.emit('error', {
           rooms: Array.from(roomInfo.playersNickname),
           mesage: 'joinUser 이미 들어와 있음',
         });
-        client.emit('allReady',true);
+        client.emit('allReady', true);
         return;
       }
 
       const currCount = Array.from(roomInfo.playersNickname).length;
-      if(currCount >= roomInfo.maxCount){
+      if (currCount >= roomInfo.maxCount) {
         throw new Error('인원 초과요~');
       }
 
@@ -116,89 +168,106 @@ export class LobbyGateway {
       client.data.userRoom = roomId;
       this.roomManger.addPlayerToRoom(roomId, nickname);
       const DTO = this.roomManger.changeToDTO(roomInfo);
-      client.emit('roomInfo',DTO);
+      this.roomManger.updateRoom(roomId, nickname, {
+        playersNickname: DTO.playersNickname,
+      });
+      client.emit('roomInfo', DTO);
       this.server.to(`${roomId}`).emit('joinUser', DTO.playersNickname);
-    }catch(err){
+      this.updateLastActiveTime(roomId);
+    } catch (err) {
       console.error(err);
-      client.emit('error',err.message);
+      client.emit('error', err.message);
     }
   }
 
   @SubscribeMessage('leaveRoom')
   async leaveRoom(
-    @ConnectedSocket() client:Socket,
-    @MessageBody() {roomId}:{roomId:number}
-  ){
-    try{
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { roomId }: { roomId: number },
+  ) {
+    try {
       const nickname = await this.verifyToken(client);
       const roomInfo = this.roomManger.getRoom(roomId);
-      if(!roomInfo){
-        client.emit('error','방이 없음')
+      if (!roomInfo) {
+        client.emit('error', '방이 없음');
       }
-      if(!roomInfo.playersNickname.has(nickname) || client.data.userRoom !== roomId){
+      if (
+        !roomInfo.playersNickname.has(nickname) ||
+        client.data.userRoom !== roomId
+      ) {
         throw new Error('방에 유저가 존재하지 않음.');
       }
-      this.roomManger.removePlayerFromRoom(roomId, nickname)
+      this.roomManger.removePlayerFromRoom(roomId, nickname);
       client.leave(`${roomId}`);
       client.data.userRoom = 0;
       const DTO = this.roomManger.changeToDTO(roomInfo);
-      if (DTO.playersNickname.length>=1 && nickname === roomInfo.creatorNickname[0]){
-        this.roomManger.changeCreator(roomInfo, nickname);
+      if (
+        DTO.playersNickname.length >= 1 &&
+        nickname === roomInfo.creatorNickname[0]
+      ) {
+        this.roomManger.changeCreator(roomInfo);
       }
       client.join('lobby');
-      this.server.to(`${roomId}`).emit('leave',DTO);
-    }catch(err){
-      client.emit('error',err.message);
+      this.server.to(`${roomId}`).emit('leave', DTO);
+      this.updateLastActiveTime(roomId);
+    } catch (err) {
+      client.emit('error', err.message);
     }
   }
 
   @SubscribeMessage('modifyRoomInfo')
   async modifyRoomInfo(
-    @ConnectedSocket() client:Socket,
+    @ConnectedSocket() client: Socket,
     @MessageBody() newRoomInfo: GameRoomDTO,
-  ){
+  ) {
     const nickname = await this.verifyToken(client);
-    const {userRoom} = client.data;
-    const {creatorNickname} = await this.roomService.findOne(userRoom);
-    if(nickname !== creatorNickname){
-      client.emit('error','방장이 아님');
+    const { userRoom } = client.data;
+    const { creatorNickname } = await this.roomService.findOne(userRoom);
+    if (nickname !== creatorNickname) {
+      client.emit('error', '방장이 아님');
     }
-    const resultInfo = this.roomManger.updateRoom(userRoom, nickname, newRoomInfo);
-    if(resultInfo){
+    const resultInfo = this.roomManger.updateRoom(
+      userRoom,
+      nickname,
+      newRoomInfo,
+    );
+    if (resultInfo) {
       this.server.to(`${userRoom}`).emit('modifyRoomInfo', resultInfo);
     }
+    this.updateLastActiveTime(userRoom);
   }
 
   @SubscribeMessage('gameReady')
   gameReady(
-    @ConnectedSocket() client:Socket,
-    @MessageBody() {roomId}:{roomId: number}
-  ){
-    const {nickname, userRoom} = client.data;
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { roomId }: { roomId: number },
+  ) {
+    const { nickname, userRoom } = client.data;
     const isSame = userRoom === roomId;
-    let room:InGameRoomInfo;
-    if(isSame){
+    let room: InGameRoomInfo;
+    if (isSame) {
       room = this.roomManger.getRoom(roomId);
       room.readyUsers.add(nickname);
     }
     if (room.readyUsers.size === room.maxCount) {
       const creatorSocket = room.creatorNickname[1];
       const socket = this.server.sockets.sockets.get(creatorSocket);
-      socket.emit('allReady',true);
+      socket.emit('allReady', true);
     }
+    this.updateLastActiveTime(roomId);
   }
 
   @SubscribeMessage('gameStart')
-  gameStart(
-    @ConnectedSocket() client:Socket
-  ){
-    const {userRoom, nickname} = client.data;
+  gameStart(@ConnectedSocket() client: Socket) {
+    const { userRoom, nickname } = client.data;
     const room = this.roomManger.getRoom(userRoom);
-    if(nickname !== room.creatorNickname[0]){
+    if (nickname !== room.creatorNickname[0]) {
       console.log('방장이 아님');
-      client.emit('error','방장이 아닌디~')
-      return
+      client.emit('error', '방장이 아닌디~');
+      return;
     }
-    this.server.to(`${userRoom}`).emit('gameStart',true)
+    this.roomManger.updateRoomStatus(userRoom);
+    this.server.to(`${userRoom}`).emit('gameStart', true);
+    this.updateLastActiveTime(userRoom);
   }
 }

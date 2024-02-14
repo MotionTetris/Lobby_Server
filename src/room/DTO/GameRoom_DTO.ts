@@ -31,6 +31,7 @@ export interface GameRoomDTO {
   currentCount: number;
   maxCount: number;
   backgroundUrl: string;
+  playersNickname: string[];
   roomStatus: keyof typeof RoomStatuses; // Players들이 READY를 다 누르면 READY / 아니면 WAIT / 시작했으면 START
   isLock: keyof typeof LockStatuses;
   passWord: string;
@@ -43,6 +44,7 @@ export interface RES_GameRoomDTO {
   currentCount: number; // 현재 인원
   maxCount: number; // 방 최대 인원
   backgroundUrl: string; // 방 배경 사진
+  playersNickname: string[];
   roomStatus: keyof typeof RoomStatuses;
   isLock: keyof typeof LockStatuses;
 }
