@@ -71,7 +71,8 @@ export class LobbyGateway {
   }
 
   async verifyToken(client: Socket): Promise<string> {
-    const { token: authToken } = client.handshake.auth;
+    // const { token: authToken } = client.handshake.auth;
+    const authToken = client.handshake.headers.authorization;
     if (!authToken.startsWith('Bearer '))
       throw new Error('Invalid token format.');
     const { sub: nickname } = this.jwtService.verify(authToken.split(' ')[1]);
@@ -278,8 +279,9 @@ export class LobbyGateway {
     @ConnectedSocket() client:Socket,
     @MessageBody() data:Message
   ){
-    const {roomId} = client.data;
-    client.broadcast.to(`${roomId}`).emit('receiveMessage',data);
+    const {userRoom} = client.data;
+    client.broadcast.to(`${userRoom}`).emit('receiveMessage',data);
+    console.log(`${userRoom}번 방에 message보냈음.ㅇㅇ`,data)
   }
 }
 
