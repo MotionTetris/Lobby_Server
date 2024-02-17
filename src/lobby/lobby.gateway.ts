@@ -145,6 +145,7 @@ export class LobbyGateway {
     try {
       const nickname = await this.verifyToken(client);
       const roomInfo = this.roomManger.getRoom(roomId);
+      this.updateLastActiveTime(roomId);
       console.log('방 상태 생성 되었나??', roomInfo);
       if (!roomInfo) {
         throw new Error('joinRoom: 방이 없음');
@@ -253,9 +254,7 @@ export class LobbyGateway {
     if(isUserReady){
       room.readyUsers.delete(nickname);
     }
-    if (room.readyUsers.size === room.maxCount) {
-      this.server.to(roomId.toString()).emit('allReady',!isUserReady);
-    }
+    this.server.to(roomId.toString()).emit('allReady',!isUserReady);
     this.updateLastActiveTime(roomId);
   }
 
