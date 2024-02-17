@@ -244,13 +244,17 @@ export class LobbyGateway {
   ) {
     const { nickname, userRoom } = client.data;
     const isSame = userRoom === roomId;
-    let room: InGameRoomInfo;
-    if (isSame) {
-      room = this.roomManger.getRoom(roomId);
+    const room: InGameRoomInfo = this.roomManger.getRoom(roomId);
+    const isUserReady = room.readyUsers.has(nickname);
+    if (isSame && !isUserReady) {
       room.readyUsers.add(nickname);
     }
+
+    if(isUserReady){
+      room.readyUsers.delete(nickname);
+    }
     if (room.readyUsers.size === room.maxCount) {
-      this.server.to(roomId.toString()).emit('allReady',true);
+      this.server.to(roomId.toString()).emit('allReady',!isUserReady);
     }
     this.updateLastActiveTime(roomId);
   }
