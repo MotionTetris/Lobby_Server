@@ -3,7 +3,7 @@ dotenv.config();
 export const config = {
     Host: 'localhost',
     Port: 3000,
-    RedisHost: 'localhost',
+    RedisHost: "localhost",
     RedisPort: 6379,
     Origin: '*',
     Secret: process.env.SECRET,

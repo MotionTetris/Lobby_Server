@@ -272,4 +272,13 @@ export class LobbyGateway {
     this.server.to(`${userRoom}`).emit('gameStart', true);
     this.updateLastActiveTime(userRoom);
   }
+
+  @SubscribeMessage('sendMessage')
+  sendMessage(
+    @ConnectedSocket() client:Socket,
+    @MessageBody() text:string
+  ){
+    const {roomId} = client.data;
+    client.broadcast.to(`${roomId}`).emit('receiveMessage',text);
+  }
 }
