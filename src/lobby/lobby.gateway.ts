@@ -71,8 +71,7 @@ export class LobbyGateway {
   }
 
   async verifyToken(client: Socket): Promise<string> {
-    // const { token: authToken } = client.handshake.auth;
-    const authToken = client.handshake.headers.authorization;
+    const { token: authToken } = client.handshake.auth;
     if (!authToken.startsWith('Bearer '))
       throw new Error('Invalid token format.');
     const { sub: nickname } = this.jwtService.verify(authToken.split(' ')[1]);
