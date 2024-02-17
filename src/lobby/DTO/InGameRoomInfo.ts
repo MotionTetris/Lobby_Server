@@ -6,6 +6,7 @@ interface InGameRoomInfo {
   maxCount: number;
   readyUsers: Set<string>;
   status: boolean;
+  options: IRoomGameOptions;
 }
 interface InGameRoomInfo_DTO {
   creatorNickname: string[];
@@ -14,4 +15,8 @@ interface InGameRoomInfo_DTO {
   roomTitle: string;
   maxCount: number;
   readyUsers: Array<string>;
+}
+
+interface IRoomGameOptions{
+  // ...options
 }

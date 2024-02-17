@@ -42,6 +42,7 @@ export class RoomManager {
       maxCount: prevRoomInfo.maxCount,
       readyUsers: new Set([nickname]),
       status: false,
+      options:"", // 추가해야함.
     };
 
     return roomInfo;

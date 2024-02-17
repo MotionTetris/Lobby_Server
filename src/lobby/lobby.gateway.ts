@@ -250,9 +250,7 @@ export class LobbyGateway {
       room.readyUsers.add(nickname);
     }
     if (room.readyUsers.size === room.maxCount) {
-      const creatorSocket = room.creatorNickname[1];
-      const socket = this.server.sockets.sockets.get(creatorSocket);
-      socket.emit('allReady', true);
+      this.server.to(roomId.toString()).emit('allReady',true);
     }
     this.updateLastActiveTime(roomId);
   }
