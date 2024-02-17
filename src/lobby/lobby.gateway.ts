@@ -276,9 +276,14 @@ export class LobbyGateway {
   @SubscribeMessage('sendMessage')
   sendMessage(
     @ConnectedSocket() client:Socket,
-    @MessageBody() text:string
+    @MessageBody() data:Message
   ){
     const {roomId} = client.data;
-    client.broadcast.to(`${roomId}`).emit('receiveMessage',text);
+    client.broadcast.to(`${roomId}`).emit('receiveMessage',data);
   }
+}
+
+type Message = {
+  nickname: string,
+  message: string
 }
